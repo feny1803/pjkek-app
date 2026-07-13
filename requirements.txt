@@ -1,0 +1,5 @@
+streamlit==1.59.1
+pdfplumber
+pandas
+gspread
+google-auth
