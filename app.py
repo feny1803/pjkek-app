@@ -6,7 +6,7 @@ import io
 import gspread
 from google.oauth2.service_account import Credentials
 
-# --- 1. KONFIGURASI HALAMAN & TEMA ESTETIK KEK ---
+# --- 1. KONFIGURASI HALAMAN ---
 st.set_page_config(
     page_title="Sistem Otomatisasi Data PJKEK - KEK Gresik", 
     page_icon="🏢", 
@@ -66,7 +66,7 @@ except Exception as e:
     existing_filenames = set()
     worksheet = None
 
-# --- 3. FUNGSI LOGIKA EKSTRAKSI PDF (DIPERBAIKI: NPWP & ALAMAT DITAMBAHKAN) ---
+# --- 3. FUNGSI LOGIKA EKSTRAKSI PDF ---
 def extract_rincian_jkp(pdf):
     all_rows = []
     found_jkp_table = False
