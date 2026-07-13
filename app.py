@@ -181,11 +181,11 @@ with st.sidebar:
 
 # === HALAMAN 1: TUTORIAL PENGGUNAAN ===
 if menu_pilihan == "1. Panduan & Tutorial":
-    st.title("Welcome to Monitoring & Analisis PJKEK Dashboard")
+    st.title("Portal Otomatisasi & Sinkronisasi Data PJKEK")
     st.subheader("Sistem Penginputan Otomatis Dokumen PJKEK Administrator KEK Gresik")
     
     st.markdown("""
-    Aplikasi ini dirancang khusus untuk memfasilitasi pegawai **Administrator KEK Gresik** dalam melakukan efisiensi kerja. Melalui sistem ini, Anda tidak perlu lagi melakukan **perekaman data secara manual (*data entry manual*)** dari ribuan berkas PDF PJKEK ke dalam Excel atau Spreadsheet.
+    Aplikasi ini dirancang khusus untuk memfasilitasi pegawai **Administrator KEK Gresik** dalam melakukan efisiensi kerja. Melalui sistem ini, Anda tidak perlu lagi melakukan **perekaman data secara manual (*data entry manual*)** dari ribuan berkas PDF Pemberitahuan Jasa Kawasan Ekonomi Khusus (PJKEK) ke dalam Excel atau Spreadsheet.
     
     Sistem akan mendeteksi komponen teks serta tabel rincian penyerahan Jasa Kena Pajak (JKP) secara otomatis, kemudian menyimpannya ke dalam database **Google Sheets** terpusat. Akumulasi data yang tersimpan di dalam database tersebut selanjutnya akan diolah secara *real-time* menjadi **Dashboard Monitoring Visual Interaktif**.
     """)
