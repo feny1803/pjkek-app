@@ -212,10 +212,14 @@ elif menu_pilihan == "2. Unggah Dokumen (Upload PDF)":
     else:
         st.success("✅ Terkoneksi Aman: Database Google Sheets Siap Menerima Data baru")
     
-    uploaded_files = st.file_uploader(
+    # Menyiapkan wadah form utama agar bisa di-reset dengan sempurna
+    wadah_uploader = st.empty()
+    
+    uploaded_files = wadah_uploader.file_uploader(
         "Silakan seret berkas atau pilih berkas PDF PJKEK Anda di sini:", 
         type=["pdf"], 
-        accept_multiple_files=True
+        accept_multiple_files=True,
+        key="pjkek_file_uploader"
     )
 
     if uploaded_files:
@@ -285,4 +289,5 @@ elif menu_pilihan == "2. Unggah Dokumen (Upload PDF)":
                 # --- BERIKUT ADALAH TOMBOL UNTUK RESET / TAMBAH UNGGAHAN LAGI ---
                 st.markdown("---")
                 if st.button("🔄 Tambah Unggahan Baru Lagi"):
+                    st.session_state["pjkek_file_uploader"] = [] # Bersihkan berkas lama secara paksa
                     st.rerun()
