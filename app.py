@@ -280,8 +280,8 @@ elif menu_pilihan == "2. Unggah Dokumen (Upload PDF)":
                 total_rows = len(new_data_rows)
 
                 if new_data_rows:
-                    worksheet.append_rows(new_data_rows)
-                    st.balloons()
+                    with st.spinner("Mengunggah data ke Google Sheets..."):
+                        worksheet.append_rows(new_data_rows)
                     st.success(f"🎉 SINKRONISASI BERHASIL! {total_added} dokumen baru telah ditambahkan (Total {total_rows} baris transaksi baru berhasil terekam).")
                 else:
                     st.info("ℹ️ Sinkronisasi selesai. Tidak ada data baru yang dimasukkan.") 
