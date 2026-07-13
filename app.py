@@ -17,14 +17,12 @@ st.set_page_config(
 # Kustomisasi CSS untuk menyamakan tema warna Corporate Blue KEK Gresik
 st.markdown("""
     <style>
-        /* Background Sidebar Biru KEK */
         [data-testid="stSidebar"] {
             background-color: #136999 !important;
         }
         [data-testid="stSidebar"] .stMarkdown, [data-testid="stSidebar"] label {
             color: white !important;
         }
-        /* Desain Tombol Ekstraksi */
         div.stButton > button:first-child {
             background-color: #0b4c6f;
             color: white;
@@ -39,14 +37,13 @@ st.markdown("""
             color: white;
             border: none;
         }
-        /* Penataan Info Box */
         .stAlert {
             border-radius: 8px;
         }
     </style>
 """, unsafe_allow_html=True)
 
-# ID Spreadsheet Database Baru Anda
+# ID Spreadsheet Database Anda
 SPREADSHEET_ID = '10zL3C58Xi-I-ytICdzzHc7y04oPq2iKzcDCGL1oB8bs'
 
 # --- 2. KONEKSI KE DATABASE GOOGLE SHEETS ---
@@ -63,11 +60,10 @@ try:
     worksheet = sh.get_worksheet(0)
     existing_filenames = set(worksheet.col_values(1))
 except Exception as e:
-    # Supaya tetap bisa di-run di lokal tanpa berkas secrets
     existing_filenames = set()
     worksheet = None
 
-# --- 3. FUNGSI LOGIKA EKSTRAKSI PDF (AMAN / TIDAK DIUBAH) ---
+# --- 3. FUNGSI LOGIKA EKSTRAKSI PDF ---
 def extract_rincian_jkp(pdf):
     all_rows = []
     found_jkp_table = False
@@ -109,45 +105,72 @@ def extract_pjkek_data(file_bytes, filename):
             if i == len(pdf.pages) - 1: last_page_text = text if text else ""
         rincian_jkp = extract_rincian_jkp(pdf)
 
+    # 1. KODE DAN NOMOR PJKEK
     kode_nomor = re.search(r'KODE DAN NOMOR PJKEK.*?(\d{3})\s*(?:(\d{2}))?\s*(\d{6})', full_text, re.DOTALL)
     kode_pjkek = kode_nomor.group(1) if kode_nomor else ""
     kode_tahun = kode_nomor.group(2) if kode_nomor and kode_nomor.group(2) else ""
     nomor_pjkek = kode_nomor.group(3) if kode_nomor else ""
 
+    # 2. DETAIL
     detail_match = re.search(r'D\.\s*IDENTITAS\s+([^\n\r:]+)', full_text)
     detail = detail_match.group(1).strip() if detail_match else ""
 
+    # 3. ASAL JKP
     asal = re.search(r'B\.\s*ASAL JKP\s*:\s*([A-Z]+)', full_text)
     asal_jkp = asal.group(1) if asal else ""
 
+    # 4. IDENTITAS PENERIMA (Section C) - Ekstraksi Nama, NPWP, Alamat, KPP
     penerima_section = re.search(r'C\..*?D\.', full_text, re.DOTALL)
-    nama_penerima = nama_kpp_terdaftar = ""
+    nama_penerima = ""
+    npwp_penerima = ""
+    alamat_penerima = ""
+    nama_kpp_terdaftar = ""
+    
     if penerima_section:
         p_text = penerima_section.group(0)
         n_match = re.search(r'NAMA\s*:\s*(.+)', p_text)
         if n_match: nama_penerima = n_match.group(1).strip()
+        
+        npwp_m = re.search(r'NPWP\s*:\s*([\d\.\-]+)', p_text)
+        if npwp_m: npwp_penerima = npwp_m.group(1).strip()
+        
+        alamat_m = re.search(r'ALAMAT\s*:\s*(.+?)(?=KODE KPP|$)', p_text, re.DOTALL)
+        if alamat_m: alamat_penerima = alamat_m.group(1).replace('\n', ' ').strip()
+        
         kpp_match = re.search(r'KODE KPP TERDAFTAR\s*:\s*\d+\s+(.*)', p_text)
         if kpp_match: nama_kpp_terdaftar = kpp_match.group(1).strip()
 
+    # 5. IDENTITAS BKP/JKP (Section D) - Ekstraksi Nama, NPWP, Alamat
     bkp_section = re.search(r'D\..*?E\.', full_text, re.DOTALL)
     nama_bkp = ""
+    npwp_bkp = ""
+    alamat_bkp = ""
+    
     if bkp_section:
-        nb_match = re.search(r'NAMA\s*:\s*(.+)', bkp_section.group(0))
+        b_text = bkp_section.group(0)
+        nb_match = re.search(r'NAMA\s*:\s*(.+)', b_text)
         if nb_match: nama_bkp = nb_match.group(1).strip()
+        
+        npwp_b_m = re.search(r'NPWP\s*:\s*([\d\.\-]+)', b_text)
+        if npwp_b_m: npwp_bkp = npwp_b_m.group(1).strip()
+        
+        alamat_b_m = re.search(r'ALAMAT\s*:\s*(.+?)(?=E\.|TOTAL|$)', b_text, re.DOTALL)
+        if alamat_b_m: alamat_bkp = alamat_b_m.group(1).replace('\n', ' ').strip()
 
+    # 6. TANGGAL DOKUMEN
     dates_last_page = re.findall(r'\b\d{2}-\d{2}-\d{4}\b', last_page_text)
     tanggal_dokumen = dates_last_page[-1] if dates_last_page else ""
 
     return {
         "nama_file": filename, "kode_pjkek": kode_pjkek, "kode_tahun": kode_tahun,
         "nomor_pjkek": nomor_pjkek, "detail": detail, "asal_jkp": asal_jkp,
-        "nama_penerima": nama_penerima, "nama_kpp_terdaftar": nama_kpp_terdaftar,
-        "nama_bkp": nama_bkp, "rincian_jkp": rincian_jkp, "tanggal_dokumen": tanggal_dokumen
+        "nama_penerima": nama_penerima, "npwp_penerima": npwp_penerima, "alamat_penerima": alamat_penerima, 
+        "nama_kpp_terdaftar": nama_kpp_terdaftar, "nama_bkp": nama_bkp, "npwp_bkp": npwp_bkp, 
+        "alamat_bkp": alamat_bkp, "rincian_jkp": rincian_jkp, "tanggal_dokumen": tanggal_dokumen
     }
 
 # --- 4. PANEL NAVIGASI UTAMA (SIDEBAR) ---
 with st.sidebar:
-    # Mengambil file gambar lokal yang ada di dalam folder yang sama
     try:
         st.image("logo_kek.png", width=180)
     except:
@@ -163,49 +186,23 @@ with st.sidebar:
     st.caption("© KEK Gresik 2026")
 
 # --- 5. MANAGEMENT HALAMAN TAMPILAN ---
-
-# === HALAMAN 1: TUTORIAL PENGGUNAAN ===
 if menu_pilihan == "1. Panduan & Tutorial":
     st.title("Welcome to Monitoring & Analisis PJKEK Dashboard")
     st.subheader("Sistem Penginputan Otomatis Dokumen PJKEK Administrator KEK Gresik")
-    
     st.markdown("""
-    Aplikasi ini dirancang khusus untuk memfasilitasi pegawai **Administrator KEK Gresik** dalam melakukan efisiensi kerja. Melalui sistem ini, Anda tidak perlu lagi melakukan **perekaman data secara manual (*data entry manual*)** dari ribuan berkas PDF PJKEK ke dalam Excel atau Spreadsheet.
-    
-    Sistem akan mendeteksi komponen teks serta tabel rincian penyerahan Jasa Kena Pajak (JKP) secara otomatis, kemudian menyimpannya ke dalam database **Google Sheets** terpusat. Akumulasi data yang tersimpan di dalam database tersebut selanjutnya akan diolah secara *real-time* menjadi **Dashboard Monitoring Visual Interaktif**.
-    """)
-    
-    st.markdown("---")
-    
-    st.markdown("### 📑 PANDUAN PENGGUNAAN (SOP PEGAWAI)")
-    
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.info("### 📂 Langkah 1\n**Buka Menu Upload**\n\nPilih menu **'2. Unggah Dokumen (Upload PDF)'** pada panel navigasi di sebelah kiri layar Anda.")
-    with col2:
-        st.info("### 📥 Langkah 2\n**Pilih Berkas PDF**\n\nSiapkan dokumen PDF PJKEK asli. Seret dan jatuhkan (*drag & drop*) berkas tersebut ke kotak pengunggahan yang tersedia. Anda dapat memproses banyak dokumen sekaligus.")
-    with col3:
-        st.info("### 🚀 Langkah 3\n**Simpan ke Database**\n\nKlik tombol **'Mulai Ekstraksi & Simpan'**. Tunggu hingga bilah kemajuan selesai memproses data dan memasukkannya ke spreadsheet terpusat.")
-
-    st.markdown("---")
-    st.markdown("### ⚠️ KETENTUAN DAN STANDARISASI DATA")
-    st.warning("""
-    * **Sistem Validasi Duplikasi:** Aplikasi ini dilengkapi fitur pencegahan data ganda. Jika nama berkas dokumen yang Anda unggah sudah pernah diproses sebelumnya oleh pegawai lain, sistem akan otomatis melewatinya (*skip*) demi menjaga validitas database.
-    * **Standar Format Dokumen:** Pastikan berkas dokumen berformat `.pdf` digital asli (bukan hasil pemindaian/scan foto kamera yang buram) agar sistem dapat membaca nominal transaksi dan rincian tabel secara akurat 100%.
+    Aplikasi ini dirancang khusus untuk efisiensi kerja pegawai **Administrator KEK Gresik** agar tidak melakukan entri data manual.
+    Sistem mengekstrak nomor dokumen, identitas lengkap (termasuk **NPWP** & **Alamat**), serta tabel rincian JKP secara otomatis ke **Google Sheets**.
     """)
 
-# === HALAMAN 2: PORTAL UPLOAD & PROSES DATA ===
 elif menu_pilihan == "2. Unggah Dokumen (Upload PDF)":
     st.title("📄 Portal Unggah Dokumen PJKEK")
     st.subheader("Ekstraksi Data Otomatis ke Database Spreadsheet")
-    st.write("Silakan unggah dokumen PDF PJKEK pada area di bawah ini untuk memulai perekaman data otomatis.")
     
     if worksheet is None:
-        st.error("❌ Hubungan ke Database Google Sheets Terputus Lokal (Akan berfungsi normal setelah di-upload ke Streamlit Cloud dengan Secrets).")
+        st.error("❌ Hubungan ke Database Google Sheets Terputus Lokal.")
     else:
         st.success("✅ Terkoneksi Aman: Database Google Sheets Siap Menerima Data baru")
     
-    # Dropzone upload file
     uploaded_files = st.file_uploader(
         "Silakan seret berkas atau pilih berkas PDF PJKEK Anda di sini:", 
         type=["pdf"], 
@@ -217,7 +214,7 @@ elif menu_pilihan == "2. Unggah Dokumen (Upload PDF)":
         
         if st.button("🚀 Mulai Ekstraksi & Simpan"):
             if worksheet is None:
-                st.error("Tidak dapat menyimpan data. Kunci Google Sheets API tidak ditemukan di komputer lokal.")
+                st.error("Tidak dapat menyimpan data. Kunci Google Sheets API tidak ditemukan.")
             else:
                 new_data_rows = []
                 skipped_files = 0
@@ -228,7 +225,6 @@ elif menu_pilihan == "2. Unggah Dokumen (Upload PDF)":
                 for index, uploaded_file in enumerate(uploaded_files):
                     filename = uploaded_file.name
                     file_content = uploaded_file.read()
-                    
                     clean_filename = re.sub(r'\s\(\d+\)\.pdf$', '.pdf', filename)
 
                     if clean_filename in existing_filenames:
@@ -241,19 +237,22 @@ elif menu_pilihan == "2. Unggah Dokumen (Upload PDF)":
                     try:
                         data = extract_pjkek_data(file_content, clean_filename)
                         rincian = data.pop("rincian_jkp", [])
+                        
                         if rincian:
                             for r in rincian:
                                 new_data_rows.append([
                                     data["nama_file"], data["kode_pjkek"], data["kode_tahun"], data["nomor_pjkek"],
-                                    data["detail"], data["asal_jkp"], data["nama_penerima"], data["nama_kpp_terdaftar"],
-                                    data["nama_bkp"], r["no"], r["jenis"], r["deskripsi"], r["total_per_item"],
+                                    data["detail"], data["asal_jkp"], data["nama_penerima"], data["npwp_penerima"], 
+                                    data["alamat_penerima"], data["nama_kpp_terdaftar"], data["nama_bkp"], data["npwp_bkp"], 
+                                    data["alamat_bkp"], r["no"], r["jenis"], r["deskripsi"], r["total_per_item"],
                                     data["tanggal_dokumen"]
                                 ])
                         else:
                             new_data_rows.append([
                                 data["nama_file"], data["kode_pjkek"], data["kode_tahun"], data["nomor_pjkek"],
-                                data["detail"], data["asal_jkp"], data["nama_penerima"], data["nama_kpp_terdaftar"],
-                                data["nama_bkp"], "-", "-", "-", "0", data["tanggal_dokumen"]
+                                data["detail"], data["asal_jkp"], data["nama_penerima"], data["npwp_penerima"], 
+                                data["alamat_penerima"], data["nama_kpp_terdaftar"], data["nama_bkp"], data["npwp_bkp"], 
+                                data["alamat_bkp"], "-", "-", "-", "0", data["tanggal_dokumen"]
                             ])
                     except Exception as e:
                         st.error(f"❌ Terjadi kesalahan pembacaan pada dokumen {clean_filename}: {e}")
@@ -269,6 +268,6 @@ elif menu_pilihan == "2. Unggah Dokumen (Upload PDF)":
                 if new_data_rows:
                     worksheet.append_rows(new_data_rows)
                     st.balloons()
-                    st.success(f"🎉 SINKRONISASI BERHASIL! {total_added} dokumen baru telah ditambahkan (Total {total_rows} baris transaksi baru berhasil terekam).")
+                    st.success(f"🎉 SINKRONISASI BERHASIL! {total_added} dokumen baru telah ditambahkan (Total {total_rows} baris transaksi terekam).")
                 else:
-                    st.info("ℹ️ Sinkronisasi selesai. Tidak ada data baru yang dimasukkan karena seluruh berkas sudah terekam sebelumnya.")
+                    st.info("ℹ️ Sinkronisasi selesai. Tidak ada data baru yang dimasukkan.")
